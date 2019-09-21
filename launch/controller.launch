@@ -1,0 +1,66 @@
+<launch>
+
+<!--
+
+    roslaunch usub_drivers controller.launch
+
+    SUB:
+    roscore
+    rosrun tf static_transform_publisher 0 0 0 0 0 0 1 janus/description/base_link janus/description/imu_link 100
+    rosrun tf static_transform_publisher 0 0 0 0 0 0 1 janus/description/odom janus/description/depth_odom_frame 10
+    rosrun tf static_transform_publisher 0 0 0 0 0 0 1 janus/description/base_link janus/description/dvl_link 10
+    roslaunch teleop joy.launch setpoint:=false namespace:=cusub_common
+    rosrun usub_drivers depth_motor_imu.py __ns:=cusub_common
+
+    COMPUTER:
+    rosrun joy joy_node __ns:=cusub_common
+
+-->
+
+	<arg name="pid_enable" default="true" />
+
+	<rosparam command="load" file="$(find usub_drivers)/config/janus_motor_config.yaml" />
+
+    <node name="janus_ekf" pkg="robot_localization" type="ekf_localization_node" clear_params="true" ns="cusub_common">
+        <rosparam command="load" file="$(find usub_drivers)/config/janus_ekf.yaml" />
+    </node>
+
+	<node name="pose_pid" pkg="motor_controllers" type="Pose_PID.py" output="screen"/>
+	<node name="pid_pololu" pkg="motor_controllers" type="PID_Pololu_matrix.py" output="screen"/>
+
+	<group if="$(arg pid_enable)">
+		<node pkg="topic_tools" type="mux" name="depth_mux" ns="cusub_common/motor_controllers" args="mux/depth/control_effort pid/depth/control_effort">
+			<remap from="mux" to="depth_mux"/>
+			<param name="initial_topic " value="pid/depth/control_effort" />
+		</node>
+		<node name="pid" pkg="pid" type="controller" ns="cusub_common/motor_controllers/pid/depth" >
+			<rosparam command="load" file="$(find usub_drivers)/config/janus_depth.yaml" />
+			<param name="rate" value="25" />
+			<param name="upper_limit" value="100" />
+			<param name="lower_limit" value="-100" />
+			<param name="diagnostic_period" value="0.25" />
+			<param name="max_loop_frequency" value="25.0" />
+			<param name="min_loop_frequency" value="25.0" />
+		</node>
+		<node name="pid" pkg="pid" type="controller" ns="cusub_common/motor_controllers/pid/pitch" >
+			<rosparam command="load" file="$(find usub_drivers)/config/janus_pitch.yaml" />
+			<param name="rate" value="25" />
+			<param name="upper_limit" value="100" />
+			<param name="lower_limit" value="-100" />
+			<param name="diagnostic_period" value="0.25" />
+			<param name="max_loop_frequency" value="25.0" />
+			<param name="min_loop_frequency" value="25.0" />
+		</node>
+		<node name="pid" pkg="pid" type="controller" ns="cusub_common/motor_controllers/pid/roll" >
+			<rosparam command="load" file="$(find usub_drivers)/config/janus_roll.yaml" />
+			<param name="rate" value="25" />
+			<param name="upper_limit" value="100" />
+			<param name="lower_limit" value="-100" />
+			<param name="diagnostic_period" value="0.25" />
+			<param name="max_loop_frequency" value="25.0" />
+			<param name="min_loop_frequency" value="25.0" />
+		</node>
+	</group>
+
+
+</launch>

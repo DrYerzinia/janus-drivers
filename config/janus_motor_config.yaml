@@ -1,0 +1,14 @@
+limit: 0.5
+flip_motor_array: [-1, -1,  1, -1, -1, -1, 1, -1]
+tam:
+  [
+    # roll, pitch,  yaw, depth, drive, strafe
+    [    1,     1,    0,  -0.5,     0,      0], # Down Front Left
+    [   -1,     1,    0,  -0.5,     0,      0], # Down Front Right
+    [   -1,    -1,    0,  -0.5,     0,      0], # Down Back Right
+    [    1,    -1,    0,  -0.5,     0,      0], # Down Back Left
+    [    0,     0, -0.3,     0,   0.8,    0.5], # Front Left
+    [    0,     0,  0.3,     0,   0.8,   -0.5], # Front Right
+    [    0,     0,  0.3,     0,   0.8,    0.5], # Back Right
+    [    0,     0, -0.3,     0,   0.8,   -0.5]  # Back Left
+  ]
