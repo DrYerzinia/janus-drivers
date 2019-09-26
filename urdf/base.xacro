@@ -21,7 +21,7 @@
 
   <xacro:property name="mass" value="4.67"/>
   <!-- Center of gravity -->
-  <xacro:property name="cog" value="0 0 0"/>
+  <xacro:property name="cog" value="0 0 -0.04"/>
   <!-- Fluid density -->
   <xacro:property name="rho" value="1028"/>
 
@@ -41,10 +41,11 @@
 
   <!-- Set up hydrodynamic plugin given as input parameter -->
   <!-- Center of buoyancy -->
-  <xacro:property name="janus_cob" value="0 0 0.08"/>
+  <xacro:property name="janus_cob" value="0 0 0.02"/>
 
-  <!-- Vehicle's actual volume (Estimated from tube 147 cu in) -->
-  <xacro:property name="janus_volume" value="0.00480"/> <!-- Added some extra for frame (Increased to prevent sinking) -->
+  <!-- Estimated from buoyant force -->
+  <!-- 81g buoyancy (4.67+0.081)/1028 = 0.00462 -->
+  <xacro:property name="janus_volume" value="0.00462"/>
 
   <!-- Describing the dimensions of the vehicle's bounding box -->
   <xacro:property name="janus_length" value="${x_size}"/>
@@ -77,18 +78,18 @@
       <hydrodynamic_model>
         <type>fossen</type>
         <added_mass>
-          1.7182 0 0     0 0      0
           0      0 0     0 0      0
-          0      0 5.468 0 0      0
           0      0 0     0 0      0
-          0      0 0     0 1.2481 0
-          0      0 0     0 0      0.0106
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+          0      0 0     0 0      0
         </added_mass>
         <linear_damping>
-          -2 -8 -8 -0.1 -0.1 -0.1
+          -8 -8 -8 -3 -3 -3
         </linear_damping>
         <quadratic_damping>
-          0 0 0 0 0 0
+          -50 -50 -50 -10 -10 -10
         </quadratic_damping>
 
       </hydrodynamic_model>
@@ -171,14 +172,17 @@
           <linkName>${robot_namespace}/thruster_${thruster_id}</linkName>
           <jointName>${robot_namespace}/thruster_${thruster_id}_joint</jointName>
           <thrusterID>${thruster_id}</thrusterID>
-          <gain>5</gain>
+          <gain>1</gain>
+          <clampMax>100</clampMax>
+          <clampMin>-100</clampMin>
           <dynamics>
             <type>FirstOrder</type>
             <timeConstant>0.2</timeConstant>
           </dynamics>
           <conversion>
-            <type>Basic</type>
-            <rotorConstant>0.00001</rotorConstant>
+            <type>LinearInterp</type>
+            <inputValues>-100 0 100</inputValues>
+            <outputValues>-12.74 0 12.74</outputValues>
           </conversion>
         </plugin>
       </gazebo>
@@ -251,6 +255,96 @@
     <!-- Include the sensor modules -->
     <!-- Mount a Pose 3D sensor. -->
     <xacro:default_pose_3d namespace="${namespace}" parent_link="${namespace}/base_link" />
+
+    <!-- Camera -->
+    <xacro:macro name="ocam_camera_macro" params="robot_namespace camera_id frame *axis *origin">
+
+    <joint name="${robot_namespace}/camera_${camera_id}_optical_joint" type="fixed">
+      <!-- these values have to be these values otherwise the gazebo camera
+          image won't be aligned properly with the frame it is supposedly
+          originating from -->
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+      <parent link="${robot_namespace}/${frame}"/>
+      <child link="${robot_namespace}/${frame}_optical"/>
+    </joint>
+
+    <link name="${robot_namespace}/${frame}_optical">
+    </link>
+
+    <!--camera_link-->
+    <link name="${robot_namespace}/${frame}">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <!--mesh filename="package://simple_arm/meshes/camera.dae"/-->
+          <sphere radius="0.01"/>
+        </geometry>
+      </collision>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <!--mesh filename="package://simple_arm/meshes/camera.dae"/-->
+          <sphere radius="0.01"/>
+        </geometry>
+        <material name="red">
+          <color rgba="1.0 0 0 1.0"/>
+        </material>
+      </visual>
+    </link>
+
+    <joint name="${robot_namespace}/${frame}_joint" type="fixed">
+      <xacro:insert_block name="axis" />
+      <xacro:insert_block name="origin" />
+      <parent link="${namespace}/base_link"/>
+      <child link="${robot_namespace}/${frame}"/>
+    </joint>
+
+    <gazebo reference="${robot_namespace}/${frame}">
+      <sensor type="camera" name="rgb_camera">
+        <update_rate>30.0</update_rate>
+        <camera name="rgb_camera">
+          <!-- 100deg FOV -->
+          <horizontal_fov>1.74533</horizontal_fov>
+          <image>
+            <width>1280</width>
+            <height>960</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.04</near>
+            <far>300</far>
+          </clip>
+          <distortion>
+            <k1>0</k1>
+            <k2>0</k2>
+            <k3>0</k3>
+            <p1>0</p1>
+            <p2>0</p2>
+            <center>0.5 0.5</center>
+          </distortion>
+        </camera>
+        <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+          <alwaysOn>true</alwaysOn>
+          <updateRate>0.0</updateRate>
+          <cameraName>camera_${camera_id}</cameraName>
+          <imageTopicName>image_raw</imageTopicName>
+          <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+          <frameName>${frame}_optical</frameName>
+          <distortionK1>0</distortionK1>
+          <distortionK2>0</distortionK2>
+          <distortionK3>0</distortionK3>
+          <distortionT1>0</distortionT1>
+          <distortionT2>0</distortionT2>
+        </plugin>
+      </sensor>
+    </gazebo>
+    </xacro:macro>
+
+    <!-- Mount a camera  -->
+    <xacro:ocam_camera_macro robot_namespace="${namespace}" camera_id="0" frame="ocam0_frame">
+      <axis xyz="0 0 1" />
+      <origin xyz="0.175 0 0" rpy="0 0 0"/>
+    </xacro:ocam_camera_macro>
 
     <!-- Pressure  -->
 
