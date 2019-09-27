@@ -41,7 +41,12 @@
 
   <!-- Set up hydrodynamic plugin given as input parameter -->
   <!-- Center of buoyancy -->
-  <xacro:property name="janus_cob" value="0 0 0.02"/>
+  <!--
+    Center of buoyancy is referenced to the center of mass.
+    Based on measurments in bucket and calculated COB it is
+    estimated to be 3cm above the COM
+  -->
+  <xacro:property name="janus_cob" value="0 0 0.03"/>
 
   <!-- Estimated from buoyant force -->
   <!-- 81g buoyancy (4.67+0.081)/1028 = 0.00462 -->
@@ -86,10 +91,10 @@
           0      0 0     0 0      0
         </added_mass>
         <linear_damping>
-          -8 -8 -8 -3 -3 -3
+          -0.0534 -0.0869 -0.1353 -0.10110 -0.05980 -0.02222
         </linear_damping>
         <quadratic_damping>
-          -50 -50 -50 -10 -10 -10
+          -10.254 -16.036 -32.269 -0.05823 -0.03058 -0.02927
         </quadratic_damping>
 
       </hydrodynamic_model>
@@ -182,7 +187,8 @@
           <conversion>
             <type>LinearInterp</type>
             <inputValues>-100 0 100</inputValues>
-            <outputValues>-12.74 0 12.74</outputValues>
+            <!-- Thrust estimated from measuring downforce.  Registered 3lb at full power for all 4 motors. -->
+            <outputValues>-3.33 0 3.33</outputValues>
           </conversion>
         </plugin>
       </gazebo>
