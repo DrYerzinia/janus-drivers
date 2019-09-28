@@ -186,9 +186,23 @@
           </dynamics>
           <conversion>
             <type>LinearInterp</type>
-            <inputValues>-100 0 100</inputValues>
             <!-- Thrust estimated from measuring downforce.  Registered 3lb at full power for all 4 motors. -->
-            <outputValues>-3.33 0 3.33</outputValues>
+            <!--
+              Buoyancy compensated PWM -> Thrust values for downforce
+              000 -> 0
+              050 -> 0
+              100 -> 0.2 lb
+              150 -> 0.6 lb
+              200 -> 1.0 lb
+              250 -> 1.7 lb
+              300 -> 2.4 lb
+              350 -> 2.8 lb
+              400 -> 3.0 lb
+              450 -> 3.1 lb
+              500 -> 3.2 lb
+            -->
+            <inputValues>   -100    -90    -80    -70    -60   -50    -40     -30     -20 -10 0 10     20     30    40   50    60    70    80    90   100</inputValues>
+            <outputValues>-3.559 -3.447 -3.336 -3.114 -2.669 -1.89 -1.112 -0.6672 -0.2224   0 0  0 0.2224 0.6672 1.112 1.89 2.669 3.114 3.336 3.447 3.559</outputValues>
           </conversion>
         </plugin>
       </gazebo>
