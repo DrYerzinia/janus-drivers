@@ -1,6 +1,7 @@
 <launch>
 
     <arg name="pid_enable" default="true" />
+    <arg name="camera_enable" default="true" />
 
     <!-- Start Driver -->
     <node pkg="usub_drivers" type="depth_motor_imu.py" name="i2c_drivers" ns="cusub_common" />
@@ -18,7 +19,7 @@
 
     <!-- Start Camera-->
     <!-- For teleop this is CPU intensive using direct streaing pipline from nvidia instead-->
-    <include file="$(find usub_drivers)/launch/jetson_csi_cam.launch" />
+    <include file="$(find usub_drivers)/launch/jetson_csi_cam.launch" if="$(arg camera_enable)" />
 
     <!-- Start Controller -->
     <include file="$(find usub_drivers)/launch/controller.launch">

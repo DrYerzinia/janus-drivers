@@ -213,6 +213,10 @@ class DepthMotorIMU():
                                                            0, 1e-6,    0,
                                                            0,    0, 1e-6]
 
+        self.imu_temp_pub = rospy.Publisher(
+            'imu_temp_c', Float64, queue_size=1)
+        self.imu_temp_data = Float64()
+
         # Initalise PWM Controller
         self.motor = ServoKit(channels=8)
         rospy.loginfo("Initalizing ECSs...")
@@ -221,7 +225,10 @@ class DepthMotorIMU():
             motor_id = motor_map[motor_name]
 
             rospy.loginfo(motor_name)
-            self.motor.servo[motor_id].set_pulse_width_range(1085, 2000)
+            # We have to shift the pulse range from (1100, 1900) because
+            # the PCA9685 produces 1440uS pulses at 0.5 throttle using
+            # the correct range
+            self.motor.servo[motor_id].set_pulse_width_range(1160, 1960)
             time.sleep(0.2)
 
         self.motor_command_sub = rospy.Subscriber('motor_controllers/pololu_control/command', Float64MultiArray, self.motor_command_callback, queue_size=1)
@@ -296,6 +303,7 @@ class DepthMotorIMU():
 
             # Publish IMU Data
             quat = self.imu.quaternion
+            self.imu_temp_data.data = self.imu.temperature
             self.imu_data.header.stamp = rospy.Time.now()
             self.imu_data.orientation = Quaternion()
 
@@ -306,6 +314,8 @@ class DepthMotorIMU():
             self.imu_data.orientation.w = quat[0]
 
             self.imu_pub.publish(self.imu_data)
+
+            self.imu_temp_pub.publish(self.imu_temp_data)
 
             r.sleep()
 
