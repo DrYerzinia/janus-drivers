@@ -1,0 +1,462 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- Loading some constants -->
+  <xacro:include filename="$(find uuv_descriptions)/urdf/common.urdf.xacro"/>
+  <!-- Loading file with sensor macros -->
+  <xacro:include filename="$(find uuv_sensor_ros_plugins)/urdf/sensor_snippets.xacro"/>
+  <!-- Loading the UUV simulator ROS plugin macros -->
+  <xacro:include filename="$(find uuv_gazebo_ros_plugins)/urdf/snippets.xacro"/>
+  <!-- Loading vehicle's specific macros -->
+  <!--
+  <xacro:include filename="$(find leviathan_description)/urdf/snippets.xacro"/>
+  -->
+
+  <!--
+    Vehicle's parameters
+    Measured: 9/20/2019
+  -->
+  <xacro:property name="x_size" value="0.4318"/> <!-- 17" -->
+  <xacro:property name="y_size" value="0.3048"/> <!-- 12" -->
+  <xacro:property name="z_size" value="0.1778"/> <!--  7" -->
+
+  <xacro:property name="mass" value="4.67"/>
+  <!-- Center of gravity -->
+  <xacro:property name="cog" value="0 0 -0.04"/>
+  <!-- Fluid density -->
+  <xacro:property name="rho" value="1028"/>
+
+  <!--
+    Visual mesh file for the vehicle, usually in DAE (Collada) format. Be sure to store the
+    mesh with the origin of the mesh on the same position of the center of mass, otherwise
+    the mesh pose will have to be corrected below in the <visual> block.
+    Open the meshes for the RexROV vehicle in Blender to see an example on the mesh placement.
+  -->
+
+  <xacro:property name="visual_mesh_file" value="file://$(find usub_drivers)/meshes/janus.stl"/>
+
+  <!-- Collision geometry mesh, usually in STL format (it is recommended to keep
+  this geometry as simple as possible to improve the performance the physics engine
+  regarding the computation of collision forces) -->
+  <xacro:property name="collision_mesh_file" value="file://$(find usub_drivers)/meshes/janus.stl"/>
+
+  <!-- Set up hydrodynamic plugin given as input parameter -->
+  <!-- Center of buoyancy -->
+  <!--
+    Center of buoyancy is referenced to the center of mass.
+    Based on measurments in bucket and calculated COB it is
+    estimated to be 3cm above the COM
+  -->
+  <xacro:property name="janus_cob" value="0 0 0.03"/>
+
+  <!-- Estimated from buoyant force -->
+  <!-- 81g buoyancy (4.67+0.081)/1028 = 0.00462 -->
+  <xacro:property name="janus_volume" value="0.00462"/>
+
+  <!-- Describing the dimensions of the vehicle's bounding box -->
+  <xacro:property name="janus_length" value="${x_size}"/>
+  <xacro:property name="janus_width"  value="${y_size}"/>
+  <xacro:property name="janus_height" value="${z_size}"/>
+
+  <xacro:property name="rho" value="1028"/>
+
+  <xacro:macro name="janus_hydro_model" params="namespace">
+    <!-- List of hydrodynamic models this robot's links -->
+    <link name="${namespace}/base_link">
+
+      <fluid_density>${rho}</fluid_density>
+      <flow_velocity_topic>hydrodynamics/current_velocity</flow_velocity_topic>
+
+      <!-- This flag will make the link neutrally buoyant -->
+      <neutrally_buoyant>0</neutrally_buoyant>
+
+      <volume>${janus_volume}</volume>
+
+      <box>
+        <width>${janus_width}</width>
+        <length>${janus_length}</length>
+        <height>${janus_height}</height>
+      </box>
+
+      <!-- Center of buoyancy -->
+      <center_of_buoyancy>${janus_cob}</center_of_buoyancy>
+
+      <hydrodynamic_model>
+        <type>fossen</type>
+        <added_mass>
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+          0      0 0     0 0      0
+        </added_mass>
+        <linear_damping>
+          -0.0534 -0.0869 -0.1353 -0.10110 -0.05980 -0.02222
+        </linear_damping>
+        <quadratic_damping>
+          -10.254 -16.036 -32.269 -0.05823 -0.03058 -0.02927
+        </quadratic_damping>
+
+      </hydrodynamic_model>
+
+    </link>
+  </xacro:macro>
+
+  <!-- Vehicle macro -->
+  <xacro:macro name="janus_base" params="namespace *gazebo">
+
+    <!-- Rigid body description of the base link -->
+    <link name="${namespace}/base_link">
+
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="${visual_mesh_file}" scale="1 1 1" />
+        </geometry>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="${collision_mesh_file}" scale="1 1 1" />
+        </geometry>
+      </collision>
+
+      <inertial>
+        <mass value="${mass}" />
+        <origin xyz="${cog}" rpy="0 0 0"/>
+        <inertia ixx="${0.2*mass*y_size*y_size + 0.2*mass*z_size*z_size}" ixy="0.0" ixz="0.0"
+                  iyy="${0.2*mass*x_size*x_size + 0.2*mass*z_size*z_size}" iyz="0.0"
+                  izz="${0.2*mass*x_size*x_size + 0.2*mass*y_size*y_size}" />
+      </inertial>
+
+    </link>
+
+    <xacro:insert_block name="gazebo" />
+
+    <gazebo reference="${namespace}/base_link">
+      <selfCollide>false</selfCollide>
+    </gazebo>
+
+    <!-- Include the thruster modules -->
+
+    <xacro:macro name="thruster_macro" params="robot_namespace thruster_id *axis *origin">
+      <link name="${robot_namespace}/thruster_${thruster_id}">
+        <!--
+        <visual>
+          <origin xyz="0 0 0" rpy="0 1.5707963 0"/>
+          <geometry>
+            <cylinder radius="0.032" length="0.04"/>
+          </geometry>
+        </visual>
+        -->
+        <!-- <collision>
+          <origin xyz="0 0 0" rpy="0 1.5707963 0"/>
+          <geometry>
+            <cylinder radius="0.046" length="0.04"/>
+          </geometry>
+        </collision> -->
+        <inertial>
+          <mass value="0.001" />
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <inertia ixx="0.000000017" ixy="0.0" ixz="0.0"
+                  iyy="0.000000017" iyz="0.0"
+                  izz="0.000000017" />
+        </inertial>
+      </link>
+
+      <joint name="${robot_namespace}/thruster_${thruster_id}_joint" type="continuous">
+        <xacro:insert_block name="axis" />
+        <xacro:insert_block name="origin" />
+        <parent link="${robot_namespace}/base_link" />
+        <child link="${robot_namespace}/thruster_${thruster_id}" />
+      </joint>
+
+      <gazebo>
+        <plugin name="${robot_namespace}_${thruster_id}_thruster_model" filename="libuuv_thruster_ros_plugin.so">
+          <linkName>${robot_namespace}/thruster_${thruster_id}</linkName>
+          <jointName>${robot_namespace}/thruster_${thruster_id}_joint</jointName>
+          <thrusterID>${thruster_id}</thrusterID>
+          <gain>1</gain>
+          <clampMax>100</clampMax>
+          <clampMin>-100</clampMin>
+          <dynamics>
+            <type>FirstOrder</type>
+            <timeConstant>0.2</timeConstant>
+          </dynamics>
+          <conversion>
+            <type>LinearInterp</type>
+            <inputValues>-100 0 100</inputValues>
+            <!-- Thrust estimated from measuring downforce.  Registered 3lb at full power for all 4 motors. -->
+            <outputValues>-3.33 0 3.33</outputValues>
+          </conversion>
+        </plugin>
+      </gazebo>
+
+      <gazebo reference="${robot_namespace}/thruster_${thruster_id}">
+        <selfCollide>false</selfCollide>
+      </gazebo>
+    </xacro:macro>
+
+    <!--
+      Down Motor Spacing
+        X: 119.6mm
+        Y: 176.0mm
+      Motor Spacing
+        Front To Back: 270.3mm
+        Front Y: 222.0mm
+        Back Y: 177.0mm
+        Biased Backward: ~40mm
+    -->
+
+    <!-- Down Front Left -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="0">
+      <axis xyz="1 0 0"/>
+      <origin xyz=" 0.0598  0.0900  0.0100" rpy="0 -1.5707963 0" />
+    </xacro:thruster_macro>
+
+    <!-- Down Front Right -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="1">
+      <axis xyz="1 0 0"/>
+      <origin xyz=" 0.0598 -0.0900  0.0100" rpy="0 -1.5707963 0" />
+    </xacro:thruster_macro>
+
+    <!-- Down Back Right -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="2">
+      <axis xyz="1 0 0"/>
+      <origin xyz="-0.0598 -0.0900  0.0100" rpy="0 -1.5707963 0" />
+    </xacro:thruster_macro>
+
+    <!-- Down Back Left -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="3">
+      <origin xyz="-0.0598  0.0900  0.0100" rpy="0 -1.5707963 0" />
+      <axis xyz="1 0 0"/>
+    </xacro:thruster_macro>
+
+    <!-- Front Left -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="4">
+      <axis xyz="1 0 0"/>
+      <origin xyz=" 0.1250  0.1110 -0.0500" rpy="0 0 -0.5235" />
+    </xacro:thruster_macro>
+
+    <!-- Front Right -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="5">
+      <axis xyz="1 0 0"/>
+      <origin xyz=" 0.1250 -0.1110 -0.0500" rpy="0 0  0.5235" />
+    </xacro:thruster_macro>
+
+    <!-- Back Right -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="6">
+      <axis xyz="1 0 0"/>
+      <origin xyz="-0.1500 -0.0885 -0.0500" rpy="0 0 -0.5235" />
+    </xacro:thruster_macro>
+
+    <!-- Back Left -->
+    <xacro:thruster_macro robot_namespace="${namespace}" thruster_id="7">
+      <axis xyz="1 0 0"/>
+      <origin xyz="-0.1500  0.0885 -0.0500" rpy="0 0  0.5235" />
+    </xacro:thruster_macro>
+
+
+    <!-- Include the sensor modules -->
+    <!-- Mount a Pose 3D sensor. -->
+    <xacro:default_pose_3d namespace="${namespace}" parent_link="${namespace}/base_link" />
+
+    <!-- Camera -->
+    <xacro:macro name="ocam_camera_macro" params="robot_namespace camera_id frame *axis *origin">
+
+    <joint name="${robot_namespace}/camera_${camera_id}_optical_joint" type="fixed">
+      <!-- these values have to be these values otherwise the gazebo camera
+          image won't be aligned properly with the frame it is supposedly
+          originating from -->
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+      <parent link="${robot_namespace}/${frame}"/>
+      <child link="${robot_namespace}/${frame}_optical"/>
+    </joint>
+
+    <link name="${robot_namespace}/${frame}_optical">
+    </link>
+
+    <!--camera_link-->
+    <link name="${robot_namespace}/${frame}">
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <!--mesh filename="package://simple_arm/meshes/camera.dae"/-->
+          <sphere radius="0.01"/>
+        </geometry>
+      </collision>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <!--mesh filename="package://simple_arm/meshes/camera.dae"/-->
+          <sphere radius="0.01"/>
+        </geometry>
+        <material name="red">
+          <color rgba="1.0 0 0 1.0"/>
+        </material>
+      </visual>
+    </link>
+
+    <joint name="${robot_namespace}/${frame}_joint" type="fixed">
+      <xacro:insert_block name="axis" />
+      <xacro:insert_block name="origin" />
+      <parent link="${namespace}/base_link"/>
+      <child link="${robot_namespace}/${frame}"/>
+    </joint>
+
+    <gazebo reference="${robot_namespace}/${frame}">
+      <sensor type="camera" name="rgb_camera">
+        <update_rate>30.0</update_rate>
+        <camera name="rgb_camera">
+          <!-- 100deg FOV -->
+          <horizontal_fov>1.74533</horizontal_fov>
+          <image>
+            <width>1280</width>
+            <height>960</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.04</near>
+            <far>300</far>
+          </clip>
+          <distortion>
+            <k1>0</k1>
+            <k2>0</k2>
+            <k3>0</k3>
+            <p1>0</p1>
+            <p2>0</p2>
+            <center>0.5 0.5</center>
+          </distortion>
+        </camera>
+        <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+          <alwaysOn>true</alwaysOn>
+          <updateRate>0.0</updateRate>
+          <cameraName>camera_${camera_id}</cameraName>
+          <imageTopicName>image_raw</imageTopicName>
+          <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+          <frameName>${frame}_optical</frameName>
+          <distortionK1>0</distortionK1>
+          <distortionK2>0</distortionK2>
+          <distortionK3>0</distortionK3>
+          <distortionT1>0</distortionT1>
+          <distortionT2>0</distortionT2>
+        </plugin>
+      </sensor>
+    </gazebo>
+    </xacro:macro>
+
+    <!-- Mount a camera  -->
+    <xacro:ocam_camera_macro robot_namespace="${namespace}" camera_id="0" frame="ocam0_frame">
+      <axis xyz="0 0 1" />
+      <origin xyz="0.175 0 0" rpy="0 0 0"/>
+    </xacro:ocam_camera_macro>
+
+    <!-- Pressure  -->
+
+    <xacro:macro name="no_collision">
+      <collision>
+        <geometry>
+          <cylinder length="${0.000001}" radius="${0.000001}" />
+        </geometry>
+        <origin xyz="0 0 0" rpy="0 ${0.5*pi} 0"/>
+      </collision>
+    </xacro:macro>
+
+    <xacro:macro name="default_pressure_macro" params="namespace parent_link *origin">
+      <xacro:pressure_plugin_macro
+        namespace="${namespace}"
+        suffix=""
+        parent_link="${parent_link}"
+        topic="pressure"
+        mass="0.015"
+        update_rate="10"
+        range="30000"
+        noise_sigma="3.0"
+        noise_amplitude="0.0"
+        estimateDepth="false"
+        standardPressure="101.325"
+        kPaPerM="9.80638">
+        <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+        <xacro:insert_block name="origin" />>
+      </xacro:pressure_plugin_macro>
+    </xacro:macro>
+
+    <xacro:macro name="default_pressure" params="namespace parent_link *origin">
+      <xacro:pressure_plugin_macro
+        namespace="${namespace}"
+        suffix=""
+        parent_link="${parent_link}"
+        topic="pressure"
+        mass="0.015"
+        update_rate="10"
+        range="30000"
+        noise_sigma="3.0"
+        noise_amplitude="0.0"
+        estimateDepth="false"
+        standardPressure="101.325"
+        kPaPerM="9.80638">
+        <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001" />
+        <xacro:insert_block name="origin" />
+      </xacro:pressure_plugin_macro>
+    </xacro:macro>
+
+    <xacro:macro name="pressure_plugin_macro"
+      params="namespace suffix parent_link topic mass update_rate
+        range noise_sigma noise_amplitude estimateDepth standardPressure kPaPerM
+        *inertia *origin">
+
+      <link name="${namespace}/pressure${suffix}_link">
+        <inertial>
+          <xacro:insert_block name="inertia" />
+          <mass value="${mass}" />  <!-- [kg] -->
+          <origin xyz="0 0 0" rpy="0 0 0" />
+        </inertial>
+        <!--
+        <visual>
+          <geometry>
+            <mesh filename="file://$(find uuv_sensor_ros_plugins)/meshes/pressure.dae" scale="1 1 1"/>
+          </geometry>
+        </visual>
+        -->
+        <xacro:no_collision/>
+      </link>
+
+      <joint name="${namespace}/pressure${suffix}_joint" type="revolute">
+        <xacro:insert_block name="origin" />
+        <parent link="${parent_link}" />
+        <child link="${namespace}/pressure${suffix}_link" />
+        <limit upper="0" lower="0" effort="0" velocity="0" />
+        <axis xyz="1 0 0"/>
+      </joint>
+
+      <gazebo>
+        <plugin filename="libuuv_gazebo_ros_subsea_pressure_plugin.so" name="libuuv_gazebo_subseapressure${suffix}_plugin">
+          <robot_namespace>${namespace}</robot_namespace> <!-- (string, required): ros namespace in which the messages are published -->
+          <link_name>${namespace}/pressure${suffix}_link</link_name> <!-- (string, required): name of the body which holds the IMU sensor -->
+          <sensor_topic>${topic}</sensor_topic> <!-- (string): name of the sensor output topic and prefix of service names (defaults to imu) -->
+          <update_rate>${update_rate}</update_rate> <!-- Update period of accelerometer and gyroscope [s] -->
+
+          <saturation>${range}</saturation> <!-- measurement range [kPa] -->
+          <noise_sigma>${noise_sigma}</noise_sigma> <!-- measurement stddev [kPa] -->
+          <noise_amplitude>${noise_amplitude}</noise_amplitude>
+          <estimate_depth_on>${estimateDepth}</estimate_depth_on> <!-- infer depth? -->
+          <standard_pressure>${standardPressure}</standard_pressure> <!-- pressure at sea level (depth 0 m) [kPa] -->
+          <kPa_per_meter>${kPaPerM}</kPa_per_meter> <!-- increase in pressure [kPa] per [m] in increased depth -->
+          <enable_gazebo_messages>false</enable_gazebo_messages>
+        </plugin>
+      </gazebo>
+    </xacro:macro>
+
+    <xacro:default_pressure namespace="${namespace}" parent_link="${namespace}/base_link">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </xacro:default_pressure>
+
+    <!-- IMU  -->
+    <xacro:default_imu namespace="${namespace}" parent_link="${namespace}/base_link">
+      <origin xyz="0 0 0" rpy="0 0 -1.57"/>
+    </xacro:default_imu>
+
+  </xacro:macro>
+
+</robot>

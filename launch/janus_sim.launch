@@ -1,0 +1,38 @@
+<launch>
+
+    <group ns="janus">
+
+        <arg name="pid_enable" default="true" />
+
+        <!-- Start Drivers -->
+        <node name="gazebo_depth" pkg="gazebo_drivers" type="depth_sensor.py">
+            <param name="namespace" value="janus"/>
+        </node>
+    	<rosparam command="load" file="$(find usub_drivers)/config/janus_motor_config.yaml" />
+        <node name="gazebo_leviathan_motor_control" pkg="gazebo_drivers" type="motor_control.py"/>
+        <node name="imu_repub" pkg="gazebo_drivers" type="imu_repub.py"/>
+
+        <!-- Publish static transforms -->
+        <node pkg="tf" type="static_transform_publisher" name="depth_link" args="0 0 0 0 0 0 1 janus/description/odom janus/description/depth_odom_frame 10" />
+        <node pkg="tf" type="static_transform_publisher" name="imu_link" args="0 0 0 0 0 0 1 janus/description/base_link janus/description/imu_link 10" />
+        <node pkg="tf" type="static_transform_publisher" name="dvl_link" args="0 0 0 0 0 0 1 janus/description/base_link janus/description/dvl_link 10" />
+
+        <!-- Start Joystick Controls -->
+        <!--
+        <include file="$(find teleop)/launch/joy.launch">
+            <arg name="namespace" value="cusub_common" />
+            <arg name="setpoint" value="false" />
+        </include>
+        -->
+        <!-- Start Controller -->
+        <include file="$(find usub_drivers)/launch/controller.launch">
+            <arg name="pid_enable" value="$(arg pid_enable)" />
+        </include>
+
+        <!-- How to launch joy node
+        rosrun joy joy_node __ns:=cusub_common
+        -->
+
+    </group>
+
+</launch>

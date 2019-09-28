@@ -1,4 +1,4 @@
-Kd: 0 #-10
-Ki: 0 #-2
+Kd: -10
+Ki: 0 #-5 #-2
 Kp: -20
-windup_limit: 5.0
+windup_limit: 50.0
