@@ -18,7 +18,7 @@
   <!--<env name="GSCAM_CONFIG" value="nvcamerasrc sensor-id=$(arg sensor_id) ! video/x-raw(memory:NVMM),
     width=(int)$(arg width), height=(int)$(arg height), format=(string)I420, framerate=(fraction)$(arg fps)/1 ! 
     nvvidconv flip-method=2 ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR" />-->
-  <env name="GSCAM_CONFIG" value="nvarguscamerasrc ! video/x-raw(memory:NVMM), width=(int)640, height=(int)480, format=(string)NV12, framerate=(fraction)10/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR" />
+  <env name="GSCAM_CONFIG" value="nvarguscamerasrc ! video/x-raw(memory:NVMM), width=(int)320, height=(int)240, format=(string)NV12, framerate=(fraction)10/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR" />
 
   <!-- Start the GSCAM node -->
   <node pkg="gscam" type="gscam" name="$(arg cam_name)">
