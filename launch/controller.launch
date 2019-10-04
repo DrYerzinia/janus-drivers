@@ -57,6 +57,7 @@
 			<param name="diagnostic_period" value="0.25" />
 			<param name="max_loop_frequency" value="25.0" />
 			<param name="min_loop_frequency" value="25.0" />
+			<param name="angle_error" value="true" />
 		</node>
 		<node name="pid" pkg="pid" type="controller" ns="cusub_common/motor_controllers/pid/pitch" >
 			<rosparam command="load" file="$(find usub_drivers)/config/janus_pitch.yaml" />
