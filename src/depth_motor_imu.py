@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 
+import io
 import sys
 import time
+import yaml
 import threading
 
 import rospy
@@ -10,6 +12,7 @@ from std_msgs.msg import Float64, Float64MultiArray
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import Quaternion
+from usub_drivers.srv import CalibrateDepth
 
 import board
 import busio
@@ -248,6 +251,18 @@ class DepthMotorIMU():
         battery_thread = threading.Thread(target = self.battery_publisher)
         battery_thread.start()
 
+        # Setup Depth calibrator
+        depth_offset_data = None
+        try:
+            with open("depth_offset.yaml", "r") as stream:
+                depth_offset_data = yaml.safe_load(stream)
+                rospy.set_param('/janus/depth_offset', depth_offset_data['depth_offset'])
+        except:
+            rospy.logwarn("No depth saved!")
+
+        # service to activate depth calibration
+        s = rospy.Service('calibrate_depth', CalibrateDepth, self.calibrate_depth)
+
         # Start Depth Publisher
         depth_thread = threading.Thread(target = self.depth_publisher)
         depth_thread.start()
@@ -319,19 +334,34 @@ class DepthMotorIMU():
 
             r.sleep()
 
+    def calibrate_depth(self, req):
+
+        depth_offset = rospy.get_param('/janus/depth_offset', 0.0)
+
+        requested_depth = req.depth.data
+        depth_offset = requested_depth - self.current_depth + depth_offset
+        rospy.set_param('/janus/depth_offset', depth_offset)
+        rospy.loginfo("Setting depth_offset to: %f" % depth_offset)
+
+        depth_offset_data = {'depth_offset': depth_offset}
+        with io.open('depth_offset.yaml', 'w', encoding='utf8') as depth_offset_file:
+            yaml.dump(depth_offset_data, depth_offset_file, default_flow_style=False, allow_unicode=True)
+
+        return []
+
+
     def depth_publisher(self):
 
         r = rospy.Rate(10) # Depth 10Hz TODO pick good value
 
         while not rospy.is_shutdown():
 
-            # TODO zero offset calibration
-            offset = 0.0
-
             # Publish Depth Data
             _, pressure = readAndCalibratePressure(self.i2c, self.C)
             pressure_mbar = pressure / 10.0
-            depth_m = -1*(pressure_mbar-797.11)*100/(1030*9.8) + offset
+            depth_m = -1*(pressure_mbar-797.11)*100/(1030*9.8) + rospy.get_param('/janus/depth_offset', 0.0)
+
+            self.current_depth = depth_m
 
             # rospy.loginfo("DEPTH %.2f %2.f" % (pressure_mbar, depth_m))
 

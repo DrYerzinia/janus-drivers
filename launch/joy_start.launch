@@ -1,33 +1,39 @@
 <launch>
 
-    <arg name="pid_enable" default="true" />
-    <arg name="camera_enable" default="true" />
+    <group ns="janus">
 
-    <!-- Start Driver -->
-    <node pkg="usub_drivers" type="depth_motor_imu.py" name="i2c_drivers" ns="cusub_common" />
+        <arg name="pid_enable" default="true" />
+        <arg name="camera_enable" default="true" />
 
-    <!-- Publish static transforms -->
-    <node pkg="tf" type="static_transform_publisher" name="depth_link" args="0 0 0 0 0 0 1 janus/description/odom janus/description/depth_odom_frame 10" />
-    <node pkg="tf" type="static_transform_publisher" name="imu_link" args="0 0 0 0 0 0 1 janus/description/base_link janus/description/imu_link 10" />
-    <node pkg="tf" type="static_transform_publisher" name="dvl_link" args="0 0 0 0 0 0 1 janus/description/base_link janus/description/dvl_link 10" />
+        <!-- Start Driver -->
+        <node pkg="usub_drivers" type="depth_motor_imu.py" name="i2c_drivers" ns="cusub_common" />
 
-    <!-- Start Joystick Controls -->
-    <include file="$(find teleop)/launch/joy.launch">
-        <arg name="namespace" value="cusub_common" />
-        <arg name="setpoint" value="false" />
-    </include>
+        <!-- Publish static transforms -->
+        <node pkg="tf" type="static_transform_publisher" name="depth_link" args="0 0 0 0 0 0 1 janus/description/odom janus/description/depth_odom_frame 10" />
+        <node pkg="tf" type="static_transform_publisher" name="imu_link" args="0 0 0 0 0 0 1 janus/description/base_link janus/description/imu_link 10" />
+        <node pkg="tf" type="static_transform_publisher" name="dvl_link" args="0 0 0 0 0 0 1 janus/description/base_link janus/description/dvl_link 10" />
 
-    <!-- Start Camera-->
-    <!-- For teleop this is CPU intensive using direct streaing pipline from nvidia instead-->
-    <include file="$(find usub_drivers)/launch/jetson_csi_cam.launch" if="$(arg camera_enable)" />
+        <!-- Start Joystick Controls -->
+        <include file="$(find teleop)/launch/joy.launch">
+            <arg name="namespace" value="cusub_common" />
+            <arg name="yaw_setpoint" default="true"/>
+            <arg name="drive_strafe_setpoint" default="false"/>
+            <arg name="pitch_roll_enabled" default="false"/>
+        </include>
 
-    <!-- Start Controller -->
-    <include file="$(find usub_drivers)/launch/controller.launch">
-        <arg name="pid_enable" value="$(arg pid_enable)" />
-    </include>
+        <!-- Start Camera-->
+        <!-- For teleop this is CPU intensive using direct streaing pipline from nvidia instead-->
+        <include file="$(find usub_drivers)/launch/jetson_csi_cam.launch" if="$(arg camera_enable)" />
 
-    <!-- How to launch joy node
-    rosrun joy joy_node __ns:=cusub_common
-    -->
+        <!-- Start Controller -->
+        <include file="$(find usub_drivers)/launch/controller.launch">
+            <arg name="pid_enable" value="$(arg pid_enable)" />
+        </include>
+
+        <!-- How to launch joy node
+        rosrun joy joy_node __ns:=cusub_common
+        -->
+
+    </group>
 
 </launch>
